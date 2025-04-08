@@ -40,6 +40,14 @@ async def scrap_excel(file: UploadFile = File(...)):
             response = requests.get(url, headers=headers, timeout=10)
             soup = BeautifulSoup(response.text, "lxml")
 
+            # Mostrar parte del HTML recibido
+            print(f"HTML para {codigo_barras}:\n", response.text[:1000])
+
+            # Solo para ilustrar cómo encontrar un input
+            input_elem = soup.select_one("input.search-input")
+            if input_elem:
+                print("Se encontró el input:", input_elem.get("placeholder"))
+
             # Extraer nombre del producto
             nombre_elem = soup.find("h3")
             nombre = nombre_elem.get_text(strip=True) if nombre_elem else "No encontrado"
