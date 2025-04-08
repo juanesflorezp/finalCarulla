@@ -1,8 +1,4 @@
 fastapi
 uvicorn
-pandas
-openpyxl
 requests
 beautifulsoup4
-lxml
-python-multipart
