@@ -1,53 +1,46 @@
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import requests
-import re
+from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-def obtener_build_id():
+# Permitir CORS para pruebas desde frontends
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/buscar/{ean}")
+def buscar_producto(ean: str):
+    url = f"https://www.carulla.com/s?q={ean}"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        return {"error": f"Error {response.status_code} al acceder a Carulla"}
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    producto = soup.find("article", {"class": "vtex-product-summary-2-x-container"})
+
+    if not producto:
+        return {"mensaje": "Producto no encontrado."}
+
     try:
-        response = requests.get("https://www.carulla.com/")
-        match = re.search(r'"buildId":"(.*?)"', response.text)
-        if match:
-            return match.group(1)
-    except Exception as e:
-        print(f"Error al obtener buildId: {e}")
-    return None
+        nombre = producto.find("span", {"class": "vtex-product-summary-2-x-productBrand"}).text.strip()
+        titulo = producto.find("span", {"class": "vtex-product-summary-2-x-productName"}).text.strip()
+        precio = producto.find("span", {"class": "vtex-product-price-1-x-currencyInteger"}).text.strip()
 
-@app.get("/buscar/{codigo}")
-def buscar_producto(codigo: str):
-    build_id = obtener_build_id()
-    
-    if not build_id:
-        return JSONResponse(
-            status_code=500,
-            content={"error": "No se pudo obtener el buildId de Carulla."}
-        )
-    
-    url = f"https://www.carulla.com/_next/data/{build_id}/es-CO/s.json?q={codigo}&sort=score_desc&page=0"
-    response = requests.get(url)
-
-    try:
-        data = response.json()
-        productos = data.get("pageProps", {}).get("results", {}).get("products", [])
-
-        if not productos:
-            return JSONResponse(
-                status_code=404,
-                content={"mensaje": "Producto no encontrado."}
-            )
-        
-        producto = productos[0]
         return {
-            "nombre": producto.get("name"),
-            "precio": producto.get("price"),
-            "imagen": producto.get("images", [{}])[0].get("imageUrl"),
-            "link": f'https://www.carulla.com{producto.get("linkText", "")}'
+            "nombre": nombre,
+            "producto": titulo,
+            "precio": precio
         }
-
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Error al procesar la respuesta: {e}"}
-        )
+        return {"error": f"No se pudo extraer la información del producto: {str(e)}"}
