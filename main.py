@@ -9,6 +9,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.service import Service
+
+
 import os
 
 app = FastAPI()
@@ -41,7 +44,9 @@ async def scrap_excel(file: UploadFile = File(...)):
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--remote-debugging-port=9222")
 
-    driver = webdriver.Chrome(executable_path="/opt/render/project/.chromedriver/bin/chromedriver", options=chrome_options)
+    service = Service("/opt/render/project/.chromedriver/bin/chromedriver")
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
     driver.set_page_load_timeout(60)
 
     try:
