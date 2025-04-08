@@ -5,7 +5,6 @@ import pandas as pd
 import time
 import tempfile
 import requests
-from bs4 import BeautifulSoup
 
 app = FastAPI()
 
@@ -31,30 +30,21 @@ async def scrap_excel(file: UploadFile = File(...)):
         "User-Agent": "Mozilla/5.0"
     }
 
-    base_url = "https://www.carulla.com/s?q="
-
     for index, row in df.iterrows():
         codigo_barras = str(row["Cód. Barras"]).strip()
         try:
-            url = base_url + codigo_barras
+            url = f"https://www.carulla.com/_next/data/qtIJHd7TbEvg8fSQmdTw8/es-CO/s.json?q={codigo_barras}&sort=score_desc&page=0"
             response = requests.get(url, headers=headers, timeout=10)
-            soup = BeautifulSoup(response.text, "lxml")
+            data = response.json()
 
-            # Mostrar parte del HTML recibido
-            print(f"HTML para {codigo_barras}:\n", response.text[:1000])
-
-            # Solo para ilustrar cómo encontrar un input
-            input_elem = soup.select_one("input.search-input")
-            if input_elem:
-                print("Se encontró el input:", input_elem.get("placeholder"))
-
-            # Extraer nombre del producto
-            nombre_elem = soup.find("h3")
-            nombre = nombre_elem.get_text(strip=True) if nombre_elem else "No encontrado"
-
-            # Extraer precio del producto
-            precio_elem = soup.select_one('div[class*="price"] p')
-            precio = precio_elem.get_text(strip=True) if precio_elem else "No encontrado"
+            productos = data.get("pageProps", {}).get("results", {}).get("products", [])
+            if productos:
+                producto = productos[0]
+                nombre = producto.get("name", "No encontrado")
+                precio = producto.get("price", "No encontrado")
+            else:
+                nombre = "No encontrado"
+                precio = "No encontrado"
 
             df.at[index, "Descripción_Carulla"] = nombre
             df.at[index, "Precio_Carulla"] = precio
