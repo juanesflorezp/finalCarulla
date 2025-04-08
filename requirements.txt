@@ -5,3 +5,4 @@ gunicorn
 fastapi
 uvicorn
 python-multipart
+openpyxl
