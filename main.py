@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Permitir CORS para pruebas desde frontends
+# Permitir CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,20 +27,23 @@ def buscar_producto(ean: str):
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    producto = soup.find("article", {"class": "vtex-product-summary-2-x-container"})
+    # Buscar contenedor del producto
+    contenedor = soup.find("div", class_="vtex-search-result-3-x-galleryItem")
 
-    if not producto:
+    if not contenedor:
         return {"mensaje": "Producto no encontrado."}
 
     try:
-        nombre = producto.find("span", {"class": "vtex-product-summary-2-x-productBrand"}).text.strip()
-        titulo = producto.find("span", {"class": "vtex-product-summary-2-x-productName"}).text.strip()
-        precio = producto.find("span", {"class": "vtex-product-price-1-x-currencyInteger"}).text.strip()
+        nombre = contenedor.find("span", class_="vtex-product-summary-2-x-productBrand")
+        titulo = contenedor.find("span", class_="vtex-product-summary-2-x-productName")
+        precio_entero = contenedor.find("span", class_="vtex-product-price-1-x-currencyInteger")
+        precio_decimal = contenedor.find("span", class_="vtex-product-price-1-x-currencyFraction")
 
         return {
-            "nombre": nombre,
-            "producto": titulo,
-            "precio": precio
+            "marca": nombre.text.strip() if nombre else "Desconocida",
+            "producto": titulo.text.strip() if titulo else "Sin nombre",
+            "precio": f"{precio_entero.text.strip()},{precio_decimal.text.strip()}" if precio_entero and precio_decimal else "No disponible"
         }
+
     except Exception as e:
         return {"error": f"No se pudo extraer la información del producto: {str(e)}"}
