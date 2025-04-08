@@ -1,9 +1,8 @@
-streamlit
-selenium
-webdriver-manager
-gunicorn
 fastapi
 uvicorn
-python-multipart
+pandas
 openpyxl
-undetected-chromedriver
+requests
+beautifulsoup4
+lxml
+python-multipart
