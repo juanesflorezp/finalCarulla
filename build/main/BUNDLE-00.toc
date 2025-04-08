@@ -1,0 +1,1 @@
+([('main', '/Users/juane/Desktop/Scraper_productos/dist/main', 'EXECUTABLE')],)
