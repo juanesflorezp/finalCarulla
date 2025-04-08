@@ -4,16 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import time
 import tempfile
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import TimeoutException
-import undetected_chromedriver as uc
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import requests
+from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# CORS para permitir acceso desde cualquier origen
+# Permitir acceso desde cualquier origen
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,55 +27,38 @@ async def scrap_excel(file: UploadFile = File(...)):
     df["Descripción_Carulla"] = None
     df["Precio_Carulla"] = None
 
-    # Configurar navegador para Render
-    options = uc.ChromeOptions()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-    driver = uc.Chrome(options=options)
-    driver.set_page_load_timeout(60)
+    base_url = "https://www.carulla.com/s?q="
 
-    try:
-        driver.get('https://www.carulla.com')
+    for index, row in df.iterrows():
+        codigo_barras = str(row["Cód. Barras"]).strip()
+        try:
+            url = base_url + codigo_barras
+            response = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(response.text, "lxml")
 
-        for index, row in df.iterrows():
-            codigo_barras = str(row["Cód. Barras"]).strip()
+            # Extraer nombre del producto
+            nombre_elem = soup.find("h3")
+            nombre = nombre_elem.get_text(strip=True) if nombre_elem else "No encontrado"
 
-            try:
-                search_field = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, '//*[@id="__next"]/header/section/div/div[1]/div[2]/form/input'))
-                )
-                search_field.clear()
-                time.sleep(1)
-                for _ in range(21):
-                    search_field.send_keys(Keys.BACKSPACE)
-                    time.sleep(0.05)
-                search_field.send_keys(codigo_barras)
-                search_field.send_keys(Keys.ENTER)
-                time.sleep(1)
+            # Extraer precio del producto
+            precio_elem = soup.select_one('div[class*="price"] p')
+            precio = precio_elem.get_text(strip=True) if precio_elem else "No encontrado"
 
-                articlename_element = WebDriverWait(driver, 20).until(
-                    EC.presence_of_element_located((By.XPATH, '//h3'))
-                )
-                prices_element = driver.find_element(By.XPATH, '//div[contains(@class,"price")]//p')
+            df.at[index, "Descripción_Carulla"] = nombre
+            df.at[index, "Precio_Carulla"] = precio
 
-                df.at[index, "Descripción_Carulla"] = articlename_element.text
-                df.at[index, "Precio_Carulla"] = prices_element.text
+        except Exception as e:
+            df.at[index, "Descripción_Carulla"] = "Error"
+            df.at[index, "Precio_Carulla"] = "Error"
+            print(f"Error en {codigo_barras}: {e}")
 
-            except TimeoutException:
-                df.at[index, "Descripción_Carulla"] = "No encontrado"
-                df.at[index, "Precio_Carulla"] = "No encontrado"
-            except Exception:
-                df.at[index, "Descripción_Carulla"] = "Error"
-                df.at[index, "Precio_Carulla"] = "Error"
+        time.sleep(1)  # evitar ser bloqueado por el servidor
 
-            time.sleep(1)
-
-    finally:
-        driver.quit()
-
-    # Guardar y retornar archivo
+    # Guardar el archivo temporal
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         df.to_excel(tmp.name, index=False)
         return FileResponse(tmp.name, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename="scraping_resultados.xlsx")
