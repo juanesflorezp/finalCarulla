@@ -1,7 +1,7 @@
-fastapi
-uvicorn
-pandas
-openpyxl
+streamlit
 selenium
 webdriver-manager
+gunicorn
+fastapi
+uvicorn
 python-multipart
